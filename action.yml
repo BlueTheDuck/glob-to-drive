@@ -1,0 +1,20 @@
+name: Upload files to Google Drive
+inputs:
+  glob:
+    description: 'Glob that will be used to find files to upload'
+    required: true
+  uploadTo:
+    description: 'ID of the folder where the files will be uploaded'
+    required: false
+  mimeType:
+    description: 'MimeType of the files being uploaded. Only one type is allowed and defaults to text/plain'
+    require: false
+  clientId:
+    description: 'Content of the client_id.json file'
+    required: true
+  token:
+    description: 'Refresh token'
+    required: true
+runs:
+  using: 'node12'
+  main: 'dist/index.js'
