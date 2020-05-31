@@ -6,28 +6,28 @@ const glob = require("glob");
 /**
  * These are the scopes. The full list is here: https://developers.google.com/identity/protocols/oauth2/scopes#drive
  * The scopes tell Google what does your app want to do. Using a feature without declaring it here will fail
+ * Remember to recreate the refresh token each time the scopes are changed
  * */
 const SCOPES = [
     'https://www.googleapis.com/auth/drive.file',
     'https://www.googleapis.com/auth/drive.metadata.readonly'
 ];
 
-
 //#region GApi
 async function login() {
     try {
         /**
          * Get info required to perform the auth from the inputs vars
-         * client-id is a JSON value downloaded from the Google Console OAuth
-         * token can ve generated running `node login.js`. The file `token.json` contains the value
+         * credentials is a JSON value downloaded from the Google Console OAuth
+         * token can ve generated running `node login.js`. The file `token.json` will then contain the value
          * UPLOAD THIS VALUES AS SECRETS! NEVER KEEP THEM UNENCRYPTED
          */
-        const client_config = JSON.parse(core.getInput("clientId", { required: true }));
+        const credentials = JSON.parse(core.getInput("credentials", { required: true }));
         const token = JSON.parse(core.getInput("token", { required: true }));
         let auth = new google.auth.OAuth2(
-            client_config.web.client_id,
-            client_config.web.client_secret,
-            client_config.web.redirect_uris[0]
+            credentials.web.client_id,
+            credentials.web.client_secret,
+            credentials.web.redirect_uris[0]
         )
         auth.setCredentials(token);
         core.info("Auth successful");
