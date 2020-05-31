@@ -5,10 +5,8 @@ const fs = require("fs");
 const KEYFILE = path.join(__dirname, "./client_id.json");
 const TOKEN_PATH = path.join(__dirname, "./token.json");
 
-const SCOPES = [
-    'https://www.googleapis.com/auth/drive.file',
-    'https://www.googleapis.com/auth/drive.metadata.readonly'
-];
+const SCOPES = require("./scopes.json");
+
 authenticate({
     keyfilePath: KEYFILE,
     scopes: SCOPES,

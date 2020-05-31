@@ -8,10 +8,7 @@ const glob = require("glob");
  * The scopes tell Google what does your app want to do. Using a feature without declaring it here will fail
  * Remember to recreate the refresh token each time the scopes are changed
  * */
-const SCOPES = [
-    'https://www.googleapis.com/auth/drive.file',
-    'https://www.googleapis.com/auth/drive.metadata.readonly'
-];
+const SCOPES = require("./scopes.json");
 
 //#region GApi
 async function login() {
