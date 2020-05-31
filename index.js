@@ -74,7 +74,7 @@ async function upload(drive, options) {
     } else if (typeof options.parents === 'string') {
         options.parents = [options.parents]
     }
-    core.info(`Uploading file ${options.file} with mime-type ${options.mimeType}`);
+    core.info(`Uploading file ${options.file} with mime-type ${options.mimeType || "empty"}`);
     try {
         await drive.files.create({
             requestBody: {
@@ -169,7 +169,7 @@ login() // Perform auth
                 await upload(Drive, {
                     file,
                     name: file.substr(file.search("/") + 1),
-                    mimeType: core.getInput("mimeType") || "plain/text",
+                    mimeType: core.getInput("mimeType"),
                     parents: core.getInput("uploadTo")
                 }).then(_ => core.info(`${file} successfully uploaded`));
             }

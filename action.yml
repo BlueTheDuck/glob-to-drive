@@ -7,7 +7,7 @@ inputs:
     description: 'ID of the folder where the files will be uploaded'
     required: false
   mimeType:
-    description: 'MimeType of the files being uploaded. Only one type is allowed and defaults to text/plain'
+    description: 'MimeType of the files being uploaded. Only one can be specified and will be used for all the files. Drive will try to guess it if left empty '
     require: false
   credentials:
     description: 'JSON downloaded from the Google Console'
