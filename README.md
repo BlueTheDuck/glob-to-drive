@@ -26,6 +26,6 @@ The content of those two files should be uploaded as secrets to the repo, then t
         # Both required, tells Google that you are authorized to use Drive
         credentials: ${{ secrets.CREDENTIALS }}
         token: ${{ secrets.TOKEN }}
-        # Optional, defaults to text/plain
+        # Optional, Google Drive will try to guess it if left empty
         mimeType: "application/pdf"
 ```
