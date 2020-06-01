@@ -41,15 +41,13 @@ async function list(drive, q) {
     let files = [];
     let pageToken = undefined;
     do {
-        let res = await drive.files.list({
+        let { data } = await drive.files.list({
             pageSize: 10,
             q,
             pageToken
         });
-        for (const file of res.data.files) {
-            files.push(file);
-        }
-        pageToken = res.data.nextPageToken;
+        files.concat(data.files);
+        pageToken = data.nextPageToken;
     } while (pageToken !== undefined);
     await Promise.all(files.map(async file => {
         const { data } = await drive.files.get({ fileId: file.id, fields: "appProperties" });
@@ -62,8 +60,8 @@ async function list(drive, q) {
 /**
  * @param {import("googleapis").drive_v3.Drive} drive Google Drive context
  * @param {object} options
- * @param options.file File to get the content from
- * @param options.name Name of the file in Drive. Defaults to `file` if left empty
+ * @param options.path Path to the file that will be uploaded
+ * @param options.name Name of the file in Drive. Defaults to `options.path` if left empty
  * @param options.mimeType Mimetype (Used both for media: and requestBody:)
  * @param options.parents Parent folder. If empty, the file will be uploaded to My Drive
  */
@@ -74,20 +72,20 @@ async function upload(drive, options) {
     } else if (typeof options.parents === 'string') {
         options.parents = [options.parents]
     }
-    core.info(`Uploading file ${options.file} with mime-type ${options.mimeType || "empty"}`);
+    core.info(`Uploading file ${options.path} with mime-type ${options.mimeType || "empty"}`);
     try {
         await drive.files.create({
             requestBody: {
                 mimeType: options.mimeType,
-                name: options.name || options.file,
+                name: options.name || options.path,
                 parents: options.parents,
                 appProperties: {
-                    source: options.file
+                    source: options.path
                 }
             },
             media: {
                 mimeType: options.mimeType,
-                body: fs.createReadStream(options.file)
+                body: fs.createReadStream(options.path)
             }
         });
     } catch (e) {
@@ -113,14 +111,19 @@ async function update(drive, options) {
 //#endregion
 
 //#region Helpers
-async function getGDriveFiles() {
+/**
+ * @param {import("googleapis").drive_v3.Drive} drive Google Drive context
+ */
+async function getGDriveFiles(Drive) {
     let q = "";
     // List files not trashed
     q += "trashed = false";
     // Append parent folder
     if (core.getInput("uploadTo"))
         q += ` and '${core.getInput("uploadTo")}' in parents`;
+
     // Download the list of files (names and ids) that currently exists on GDrive
+    core.info("Getting list of files in Drive");
     return await list(Drive, q);
 }
 async function getMatchedFiles() {
@@ -143,38 +146,43 @@ async function getMatchedFiles() {
 //#endregion
 
 let Drive = null;
-login() // Perform auth
-    .then((auth) => {
+
+// Perform auth
+login()
+    .then(auth => {
         // Create the Drive API and store it in the global var `drive`
         Drive = google.drive({
             version: "v3",
-            auth: auth,
+            auth,
         });
     })
-    .then(async _ => {
-        let [gfiles, matches] = await Promise.all([getGDriveFiles(), getMatchedFiles()]);
-        return Promise.all(matches.map(async (file) => {
-            core.info(`Processing ${file}`);
+    // Find files and get GDrive info
+    .then(_ => Promise.all([getGDriveFiles(Drive), getMatchedFiles()]))
+    // Perform the upload/update
+    .then(([gfiles, matches]) =>
+        Promise.all(matches.map(async (path) => {
+            core.info(`Processing ${path}`);
 
             // Find if this file already exists on GDrive
-            let gfile = gfiles.find(f => f.appProperties.source == file);
+            let gfile = gfiles.find(f => f.appProperties.source == path);
 
             // If it does, then we update its content
             if (gfile) {
                 await update(Drive, {
                     fileId: gfile.id,
-                    file
-                }).then(_ => core.info(`${file} successfully updated`));
+                    file: path
+                }).then(_ => core.info(`${path} successfully updated`));
             } else {
+                let name = path.split("/").pop(); // If your file has '/' in the name then you have a problem
                 await upload(Drive, {
-                    file,
-                    name: file.substr(file.search("/") + 1),
+                    path,
+                    name,
                     mimeType: core.getInput("mimeType"),
                     parents: core.getInput("uploadTo")
-                }).then(_ => core.info(`${file} successfully uploaded`));
+                }).then(_ => core.info(`${path} successfully uploaded`));
             }
-        })).then(p => p.length);
-    })
+        })).then(p => p.length)// Return the amount of files processed
+    )
     .then(res => {
         core.info(`${res} files uploaded/updated`);
     })
