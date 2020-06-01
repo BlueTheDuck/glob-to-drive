@@ -2,7 +2,7 @@ const { google } = require("googleapis");
 const core = require("@actions/core");
 const glob = require("glob");
 const path = require("path");
-const { login, createDriveApi, list, update, upload } = require("./drive-wrapper.js");
+const { login, createDriveApi, list, update, upload, folder } = require("./drive-wrapper.js");
 
 
 
