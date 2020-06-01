@@ -5,6 +5,9 @@ const path = require("path");
 const { login, createDriveApi, list, update, upload } = require("./drive-wrapper.js");
 
 
+
+const FOLDER_MIMETYPE = "application/vnd.google-apps.folder";
+
 /**
  * These are the scopes. The full list is here: https://developers.google.com/identity/protocols/oauth2/scopes#drive
  * The scopes tell Google what does your app want to do. Using a feature without declaring it here will fail
