@@ -107,8 +107,22 @@ async function update(drive, options) {
         }
     })
 }
+
+/**
+ * Return the folder info
+ * @param {import("googleapis").drive_v3.Drive} drive Google Drive context
+ * @param {object} options
+ * @param {string} options.path Path in the format 'a/b/c' relative to parent. The folder would be 'c'
+ * @param {string} options.parent ID of the folder
+ * @param {boolean} options.create Create if it doesn't exists. Error otherwise
+ * @returns {import("googleapis").drive_v3.Schema$File} Folder data
+ */
+async function folder(drive, options) {
+    throw new Error("Unimplemented");
+
+}
 //#endregion
 
 module.exports = {
-    login, createDriveApi, list, upload, update
+    login, createDriveApi, list, upload, update, folder
 }
