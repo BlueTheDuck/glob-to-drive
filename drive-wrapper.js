@@ -45,7 +45,7 @@ async function list(drive, q) {
             q,
             pageToken
         });
-        files.concat(data.files);
+        files = files.concat(data.files);
         pageToken = data.nextPageToken;
     } while (pageToken !== undefined);
     await Promise.all(files.map(async file => {
