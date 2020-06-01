@@ -2,6 +2,7 @@ const core = require("@actions/core");
 const { google } = require("googleapis");
 const fs = require("fs");
 const glob = require("glob");
+const path = require("path");
 
 /**
  * These are the scopes. The full list is here: https://developers.google.com/identity/protocols/oauth2/scopes#drive
@@ -160,26 +161,27 @@ login()
     .then(_ => Promise.all([getGDriveFiles(Drive), getMatchedFiles()]))
     // Perform the upload/update
     .then(([gfiles, matches]) =>
-        Promise.all(matches.map(async (path) => {
-            core.info(`Processing ${path}`);
+        Promise.all(matches.map(async (filePath) => {
+            filePath = path.normalize(filePath);
+            core.info(`Processing ${filePath}`);
 
             // Find if this file already exists on GDrive
-            let gfile = gfiles.find(f => f.appProperties.source == path);
+            let gfile = gfiles.find(f => f.appProperties.source == filePath);
 
             // If it does, then we update its content
             if (gfile) {
                 await update(Drive, {
                     fileId: gfile.id,
-                    file: path
-                }).then(_ => core.info(`${path} successfully updated`));
+                    file: filePath
+                }).then(_ => core.info(`${filePath} successfully updated`));
             } else {
-                let name = path.split("/").pop(); // If your file has '/' in the name then you have a problem
+                let name = path.parse(filePath).base;
                 await upload(Drive, {
-                    path,
+                    path: filePath,
                     name,
                     mimeType: core.getInput("mimeType"),
                     parents: core.getInput("uploadTo")
-                }).then(_ => core.info(`${path} successfully uploaded`));
+                }).then(_ => core.info(`${filePath} successfully uploaded`));
             }
         })).then(p => p.length)// Return the amount of files processed
     )
