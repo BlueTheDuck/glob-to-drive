@@ -76,7 +76,8 @@ main()
             core.info(`Processing ${filePath}`);
 
             // Find if this file already exists on GDrive
-            let gfile = gfiles.find(f => f.appProperties.source == filePath);
+            // We may have grabbed a file without appProperties, so we should check that it exists
+            let gfile = gfiles.find(f => f.appProperties && f.appProperties.source == filePath);
 
             // If it does, then we update its content
             if (gfile) {
