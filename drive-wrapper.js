@@ -28,7 +28,7 @@ async function login(credentials, token) {
         core.info("Auth successful");
         return auth;
     } catch (e) {
-        return Promise.reject(e);
+        Promise.reject(e);
     }
 }
 function createDriveApi(auth) {
@@ -94,7 +94,7 @@ async function upload(drive, options) {
             }
         });
     } catch (e) {
-        return Promise.reject(e);
+        Promise.reject(e);
     }
 }
 
@@ -158,7 +158,7 @@ async function folder(drive, options) {
         }
         if (currentFolderId === undefined) {
             release();
-            return Promise.reject(`The (sub)folder ${folderName} couldn't be located nor created (Full path: ${options.path}. Query: ${q})`);
+            Promise.reject(`The (sub)folder ${folderName} couldn't be located nor created (Full path: ${options.path}. Query: ${q})`);
         }
         parentId = currentFolderId;
     }

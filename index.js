@@ -57,7 +57,7 @@ async function main() {
         const token = JSON.parse(core.getInput("token", { required: true }));
         return [credentials, token];
     } catch (e) {
-        return Promise.reject(e);
+        Promise.reject(e);
     }
 }
 
@@ -93,12 +93,13 @@ main()
                     parent: core.getInput("uploadTo"),
                     path: pathParsed.dir
                 }).catch(core.error);
+                core.info(`Uploading ${pathParsed.dir}>${pathParsed.name} to ${folderId}`)
 
                 await upload(Drive, {
                     path: filePath,
                     name: pathParsed.base,
                     mimeType: core.getInput("mimeType"),
-                    parents: folderId
+                    parents: [folderId]
                 }).then(_ => core.info(`${filePath} successfully uploaded`));
             }
         })).then(p => p.length)// Return the amount of files processed
