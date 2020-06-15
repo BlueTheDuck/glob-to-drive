@@ -49,15 +49,15 @@ async function list(drive, q) {
         let { data } = await drive.files.list({
             pageSize: 10,
             q,
-            pageToken
+            pageToken,
+            fields: "files(id, appProperties)"
+        }).catch(e => {
+            core.setFailed(e);
+            Promise.reject(e.toString());
         });
         files = files.concat(data.files);
         pageToken = data.nextPageToken;
     } while (pageToken !== undefined);
-    await Promise.all(files.map(async file => {
-        const { data } = await drive.files.get({ fileId: file.id, fields: "appProperties" });
-        file.appProperties = data.appProperties;
-    }))
 
     return files;
 }
@@ -85,7 +85,8 @@ async function upload(drive, options) {
                 name: options.name || options.path,
                 parents: options.parents,
                 appProperties: {
-                    source: options.path
+                    source: options.path,
+                    "glob-to-drive": true
                 }
             },
             media: {
@@ -124,45 +125,49 @@ async function update(drive, options) {
  * @returns {String} Folder data
  */
 async function folder(drive, options) {
-    let release = await folderLock.acquire();
     let pathStructure = options.path.split(path.sep);
     core.info(`Path structure: ${pathStructure}`);
     let parentId = options.parent || `root`;
     for (let folderName of pathStructure) {
+        let folderLockRelease = await folderLock.acquire(); // Make sure no one is creating folders
+
         let q = `'${parentId}' in parents and name = '${folderName}'`;
 
         // TODO: Find a better way to chose what folder to use. 
         let folder = await list(drive, q)
             .then(folders => folders[0]) // Take the first, ignore the rest
             .catch(e => {
-                release();
+                folderLockRelease();
                 Promise.reject(e.toString());
             });
+        // Take the ID of the folder...
         let currentFolderId = folder ? folder.id : undefined;
 
-        if (currentFolderId === undefined && options.create) {
-            currentFolderId = await drive.files.create({
-                requestBody: {
-                    name: folderName,
-                    parents: [parentId],
-                    mimeType: FOLDER_MIMETYPE
-                },
-                fields: 'id'
-            })
-                .then(res => res.data.id)
-                .catch(e => {
-                    release();
-                    Promise.reject(e.toString())
-                });
-            core.info(`Folder ${folderName} was created with id ${currentFolderId}`);
-        }
+        // ...if no folder was found...
         if (currentFolderId === undefined) {
-            release();
-            Promise.reject(`The (sub)folder ${folderName} couldn't be located nor created (Full path: ${options.path}. Query: ${q})`);
+            if (options.create) //  ...we check if we are allowed to create one...
+                currentFolderId = await drive.files.create({
+                    requestBody: {
+                        name: folderName,
+                        parents: [parentId],
+                        mimeType: FOLDER_MIMETYPE
+                    },
+                    fields: 'id'
+                })
+                    .then(res => res.data.id)
+                    .catch(e => {
+                        folderLockRelease(); // We are no longer risking a race condition
+                        Promise.reject(e.toString())
+                    });
+            else {// ...if not, we fail
+                folderLockRelease(); // We are no longer risking a race condition
+                Promise.reject(`The (sub)folder ${folderName} couldn't be located nor created (Full path: ${options.path}. Query: ${q})`);
+            }
         }
+        core.info(`Folder ${folderName} has id ${currentFolderId}`);
+        folderLockRelease(); // We are no longer risking a race condition
         parentId = currentFolderId;
     }
-    release();
     core.info(`Returning ${parentId} for ${pathStructure}`);
     return parentId;
 }
