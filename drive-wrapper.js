@@ -1,6 +1,9 @@
 const { google } = require("googleapis");
 const core = require("@actions/core");
 const fs = require("fs");
+const path = require("path");
+
+const FOLDER_MIMETYPE = "application/vnd.google-apps.folder";
 
 //#region GApi
 async function login(credentials, token) {
@@ -115,7 +118,7 @@ async function update(drive, options) {
  * @param {string} options.path Path in the format 'a/b/c' relative to parent. The folder would be 'c'
  * @param {string} options.parent ID of the folder
  * @param {boolean} options.create Create if it doesn't exists. Error otherwise
- * @returns {import("googleapis").drive_v3.Schema$File} Folder data
+ * @returns {String} Folder data
  */
 async function folder(drive, options) {
     let pathStructure = options.path.split(path.sep);
@@ -123,22 +126,27 @@ async function folder(drive, options) {
     let parentId = options.parent || `root`;
     for (let folderName of pathStructure) {
         let q = `'${parentId}' in parents and name = '${folderName}'`;
-        let currentFolder;
-        try {
-            folderList = await list(drive, q);
-            console.log(folderList);
-            [currentFolder] = folderList;
-        } catch (e) {
-            return Promise.reject(e);
+        let [folder] = await list(drive, q).catch(e => Promise.reject(e.toString()));
+        let currentFolderId = folder ? folder.id : undefined;
+
+        if (currentFolderId === undefined && options.create) {
+            currentFolderId = await drive.files.create({
+                requestBody: {
+                    name: folderName,
+                    parents: [parentId],
+                    mimeType: FOLDER_MIMETYPE
+                },
+                fields: 'id'
+            }).then(res => res.data.id).catch(e => Promise.reject(e.toString()));
+            core.info(`Folder ${folderName} was created with id ${currentFolderId}`);
         }
-        if (currentFolder === undefined) {
-            return Promise.reject(`The (sub)folder ${folderName} couldn't be located (Full path: ${options.path}. Query: ${q})`);
+        if (currentFolderId === undefined) {
+            return Promise.reject(`The (sub)folder ${folderName} couldn't be located nor created (Full path: ${options.path}. Query: ${q})`);
         }
-        parentId = folder.id;
+        parentId = currentFolderId;
     }
-    return drive.files.get({
-        fileId: parentId
-    });
+    core.info(`Returning ${parentId} for ${pathStructure}`);
+    return parentId;
 }
 //#endregion
 
