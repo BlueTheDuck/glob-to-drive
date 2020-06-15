@@ -6,8 +6,6 @@ const { login, createDriveApi, list, update, upload, folder } = require("./drive
 
 
 
-const FOLDER_MIMETYPE = "application/vnd.google-apps.folder";
-
 /**
  * These are the scopes. The full list is here: https://developers.google.com/identity/protocols/oauth2/scopes#drive
  * The scopes tell Google what does your app want to do. Using a feature without declaring it here will fail
@@ -89,12 +87,18 @@ main()
                     file: filePath
                 }).then(_ => core.info(`${filePath} successfully updated`));
             } else {
-                let name = path.parse(filePath).base;
+                let pathParsed = path.parse(filePath);
+                let folderId = await folder(Drive, {
+                    create: true,
+                    parent: core.getInput("uploadTo"),
+                    path: pathParsed.dir
+                }).catch(core.error);
+
                 await upload(Drive, {
                     path: filePath,
-                    name,
+                    name: pathParsed.base,
                     mimeType: core.getInput("mimeType"),
-                    parents: core.getInput("uploadTo")
+                    parents: folderId
                 }).then(_ => core.info(`${filePath} successfully uploaded`));
             }
         })).then(p => p.length)// Return the amount of files processed
