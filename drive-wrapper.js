@@ -2,8 +2,11 @@ const { google } = require("googleapis");
 const core = require("@actions/core");
 const fs = require("fs");
 const path = require("path");
+const { Mutex } = require("await-semaphore");
+
 
 const FOLDER_MIMETYPE = "application/vnd.google-apps.folder";
+let folderLock = new Mutex();
 
 //#region GApi
 async function login(credentials, token) {
@@ -121,12 +124,20 @@ async function update(drive, options) {
  * @returns {String} Folder data
  */
 async function folder(drive, options) {
+    let release = await folderLock.acquire();
     let pathStructure = options.path.split(path.sep);
     core.info(`Path structure: ${pathStructure}`);
     let parentId = options.parent || `root`;
     for (let folderName of pathStructure) {
         let q = `'${parentId}' in parents and name = '${folderName}'`;
-        let [folder] = await list(drive, q).catch(e => Promise.reject(e.toString()));
+
+        // TODO: Find a better way to chose what folder to use. 
+        let folder = await list(drive, q)
+            .then(folders => folders[0]) // Take the first, ignore the rest
+            .catch(e => {
+                release();
+                Promise.reject(e.toString());
+            });
         let currentFolderId = folder ? folder.id : undefined;
 
         if (currentFolderId === undefined && options.create) {
@@ -137,14 +148,21 @@ async function folder(drive, options) {
                     mimeType: FOLDER_MIMETYPE
                 },
                 fields: 'id'
-            }).then(res => res.data.id).catch(e => Promise.reject(e.toString()));
+            })
+                .then(res => res.data.id)
+                .catch(e => {
+                    release();
+                    Promise.reject(e.toString())
+                });
             core.info(`Folder ${folderName} was created with id ${currentFolderId}`);
         }
         if (currentFolderId === undefined) {
+            release();
             return Promise.reject(`The (sub)folder ${folderName} couldn't be located nor created (Full path: ${options.path}. Query: ${q})`);
         }
         parentId = currentFolderId;
     }
+    release();
     core.info(`Returning ${parentId} for ${pathStructure}`);
     return parentId;
 }
