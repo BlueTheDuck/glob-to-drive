@@ -118,8 +118,27 @@ async function update(drive, options) {
  * @returns {import("googleapis").drive_v3.Schema$File} Folder data
  */
 async function folder(drive, options) {
-    throw new Error("Unimplemented");
-
+    let pathStructure = options.path.split(path.sep);
+    core.info(`Path structure: ${pathStructure}`);
+    let parentId = options.parent || `root`;
+    for (let folderName of pathStructure) {
+        let q = `'${parentId}' in parents and name = '${folderName}'`;
+        let currentFolder;
+        try {
+            folderList = await list(drive, q);
+            console.log(folderList);
+            [currentFolder] = folderList;
+        } catch (e) {
+            return Promise.reject(e);
+        }
+        if (currentFolder === undefined) {
+            return Promise.reject(`The (sub)folder ${folderName} couldn't be located (Full path: ${options.path}. Query: ${q})`);
+        }
+        parentId = folder.id;
+    }
+    return drive.files.get({
+        fileId: parentId
+    });
 }
 //#endregion
 
