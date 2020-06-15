@@ -32,7 +32,7 @@ The content of those two files should be uploaded as secrets to the repo, then t
 
 ### TODO
 
-- [ ] Keep folder structure
+- [x] Keep folder structure
 - [ ] Allow renaming files
 - [ ] Glob for _ignoring_ files
 - [ ] Allow putting the content of the file in the `indexableText` attribute when uploading or updating
