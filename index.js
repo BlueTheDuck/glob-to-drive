@@ -22,10 +22,9 @@ let Drive = null;
 async function getGDriveFiles(Drive) {
     let q = "";
     // List files not trashed
-    q += "trashed = false";
-    // Append parent folder
-    if (core.getInput("uploadTo"))
-        q += ` and '${core.getInput("uploadTo")}' in parents`;
+    q += "trashed = false ";
+    // Only list files created by glob-to-drive
+    q += "and appProperties has { key='glob-to-drive' and value='true'}"
 
     // Download the list of files (names and ids) that currently exists on GDrive
     core.info("Getting list of files in Drive");
