@@ -1,10 +1,15 @@
-name: Upload files to Google Drive
+name: Glob to Drive
+description: Action that takes a glob and uploads matching files to Google Drive
+branding:
+    icon: 'upload-cloud'
+    color: 'yellow'
+
 inputs:
   glob:
     description: 'Glob that will be used to find files to upload'
     required: true
   uploadTo:
-    description: 'ID of the folder where the files will be uploaded'
+    description: 'ID of the folder where the files will be uploaded (Defaults to My Drive)'
     required: false
   mimeType:
     description: 'MimeType of the files being uploaded. Only one can be specified and will be used for all the files. Drive will try to guess it if left empty '
@@ -18,3 +23,4 @@ inputs:
 runs:
   using: 'node12'
   main: 'dist/index.js'
+
