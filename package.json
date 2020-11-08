@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@google-cloud/local-auth": "^1.0.0",
+    "@vercel/ncc": "^0.24.1",
     "dotenv": "^8.2.0"
   }
 }
