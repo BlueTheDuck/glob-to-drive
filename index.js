@@ -13,8 +13,6 @@ const { login, createDriveApi, list, update, upload, folder } = require("./drive
  * */
 const SCOPES = require("./scopes.json");
 
-let Drive = null;
-
 //#region Helpers
 /**
  * @param {import("googleapis").drive_v3.Drive} drive Google Drive context
@@ -31,12 +29,7 @@ async function getGDriveFiles(Drive) {
     return await list(Drive, q);
 }
 async function getMatchedFiles() {
-    let pattern;
-    try {
-        pattern = core.getInput("glob", { required: true });
-    } catch (e) {
-        return nok(e);
-    }
+    let pattern = core.getInput("glob", { required: true });
     core.info(`Performing search with ${pattern}`);
     return new Promise((ok, nok) => {
         glob(pattern, {}, (err, matches) => {
@@ -47,62 +40,72 @@ async function getMatchedFiles() {
         })
     });
 }
+/**
+ * 
+ * @param {String} filePath File to be uploaded
+ * @param {Array<String>} gfiles Files found on Google Drive
+ * @param {import("googleapis").drive_v3.Drive} drive Google Drive context
+ */
+async function processFile(filePath, gfiles, drive) {
+    filePath = path.normalize(filePath);
+    core.info(`Processing '${filePath}'`);
+
+    // Find if this file already exists on GDrive
+    // We may have grabbed a file without appProperties, so we should check that it exists
+    let gfile = gfiles.find(f => f.appProperties && f.appProperties.source == filePath);
+
+    // If it does, then we update its content
+    if (gfile) {
+        await update(drive, {
+            fileId: gfile.id,
+            file: filePath
+        }).then(_ => core.info(`${filePath} successfully updated`));
+    } else {
+        let pathParsed = path.parse(filePath);
+        // Folder to upload
+        let folderId;
+        // Also create subfolders
+        let keepStructure = core.getInput("keepStructure") == "true" || core.getInput("keepStructure") == "";
+        if (keepStructure) {
+            folderId = await folder(drive, {
+                create: true,
+                parent: core.getInput("uploadTo"),
+                path: pathParsed.dir
+            });
+        } else {
+            folderId = core.getInput("uploadTo") || "root";
+        }
+
+        core.info(`Uploading '${pathParsed.dir}/${pathParsed.name}' to '${folderId}'`)
+
+        await upload(drive, {
+            path: filePath,
+            name: pathParsed.base,
+            mimeType: core.getInput("mimeType"),
+            parents: [folderId]
+        }).then(_ => core.info(`${filePath} successfully uploaded`));
+    }
+}
 //#endregion
 
 async function main() {
-    // Try to get the login info as Action Inputs
+    let credentials, token;
     try {
-        const credentials = JSON.parse(core.getInput("credentials", { required: true }));
-        const token = JSON.parse(core.getInput("token", { required: true }));
-        return [credentials, token];
+        credentials = JSON.parse(core.getInput("credentials", { required: true }));
+        token = JSON.parse(core.getInput("token", { required: true }));
     } catch (e) {
-        Promise.reject(e);
+        core.error(`Failed to gather credentials: ${e}`);
+        throw e;
     }
+    core.info("Logging in");
+    let auth = await login(credentials, token);
+    let drive = createDriveApi(auth);
+    let [gfiles, matches] = await Promise.all([getGDriveFiles(drive), getMatchedFiles()]);
+    return await Promise.all(matches.map(filePath => processFile(filePath, gfiles, drive))).then(p => p.length); // Return the amount of files processed
 }
 
+
 main()
-    // Perform auth
-    .then(([credentials, token]) => login(credentials, token))
-    .then(auth => {
-        // Drive is the API, set as a global var
-        Drive = createDriveApi(auth);
-    })
-    // Find get GDrive info and find files
-    .then(_ => Promise.all([getGDriveFiles(Drive), getMatchedFiles()]))
-    // Perform the upload/update
-    .then(([gfiles, matches]) =>
-        Promise.all(matches.map(async (filePath) => {
-            filePath = path.normalize(filePath);
-            core.info(`Processing ${filePath}`);
-
-            // Find if this file already exists on GDrive
-            // We may have grabbed a file without appProperties, so we should check that it exists
-            let gfile = gfiles.find(f => f.appProperties && f.appProperties.source == filePath);
-
-            // If it does, then we update its content
-            if (gfile) {
-                await update(Drive, {
-                    fileId: gfile.id,
-                    file: filePath
-                }).then(_ => core.info(`${filePath} successfully updated`));
-            } else {
-                let pathParsed = path.parse(filePath);
-                let folderId = await folder(Drive, {
-                    create: true,
-                    parent: core.getInput("uploadTo"),
-                    path: pathParsed.dir
-                }).catch(core.error);
-                core.info(`Uploading ${pathParsed.dir}>${pathParsed.name} to ${folderId}`)
-
-                await upload(Drive, {
-                    path: filePath,
-                    name: pathParsed.base,
-                    mimeType: core.getInput("mimeType"),
-                    parents: [folderId]
-                }).then(_ => core.info(`${filePath} successfully uploaded`));
-            }
-        })).then(p => p.length)// Return the amount of files processed
-    )
     .then(res => {
         core.info(`${res} files uploaded/updated`);
     })

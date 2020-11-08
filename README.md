@@ -17,10 +17,12 @@ The content of those two files should be uploaded as secrets to the repo, then t
 
 ```yml
   - name: Upload to Google Drive
-    uses: PeronTheDuck/glob-to-drive@v3
+    uses: PeronTheDuck/glob-to-drive@v4
     with:
         # Required, used to find files
         glob: "**/*.pdf"
+        # Optional, defaults to true. Controls whether to create subfolders or to upload everything to `uploadTo`
+        keepStructure: true
         # Optional, if left empty, the files are uploaded to My Drive
         uploadTo: ${{ secrets.DRIVE_FOLDER_ID }}
         # Both required, tells Google that you are authorized to use Drive
