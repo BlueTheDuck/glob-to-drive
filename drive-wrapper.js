@@ -28,12 +28,13 @@ async function login(credentials, token) {
         core.info("Auth successful");
         return auth;
     } catch (e) {
-        Promise.reject(e);
+        core.error(`Authentication failed: ${e}`);
+        throw e;
     }
 }
 function createDriveApi(auth) {
     // Create the Drive API and store it in the global var `drive`
-    return Drive = google.drive({
+    return google.drive({
         version: "v3",
         auth,
     });
@@ -115,8 +116,9 @@ async function update(drive, options) {
     })
 }
 
+// TODO: Do we really need to run `folderLockRelease()` on every error? Code could be simplified if not
 /**
- * Return the folder info
+ * Return the ID of the last folder in `options.path`
  * @param {import("googleapis").drive_v3.Drive} drive Google Drive context
  * @param {object} options
  * @param {string} options.path Path in the format 'a/b/c' relative to parent. The folder would be 'c'
@@ -125,27 +127,35 @@ async function update(drive, options) {
  * @returns {String} Folder data
  */
 async function folder(drive, options) {
-    let pathStructure = options.path.split(path.sep);
-    core.info(`Path structure: ${pathStructure}`);
     let parentId = options.parent || `root`;
+    // If we are actually uploading to `parent` (As in "no subfolder" then just return the parent ID)
+    if (options.path === "") {
+        return parentId;
+    }
+    let pathStructure = options.path.split(path.sep);
+    core.info(`Path structure: '${pathStructure}' (${pathStructure.length} element/s)`);
     for (let folderName of pathStructure) {
         let folderLockRelease = await folderLock.acquire(); // Make sure no one is creating folders
+        core.info(`Finding folder with name '${folderName}'`);
 
         let q = `'${parentId}' in parents and name = '${folderName}'`;
 
-        // TODO: Find a better way to chose what folder to use. 
+        // TODO: Find a better way to choose what folder to use. 
         let folder = await list(drive, q)
             .then(folders => folders[0]) // Take the first, ignore the rest
             .catch(e => {
                 folderLockRelease();
-                Promise.reject(e.toString());
+                throw e;
             });
+
         // Take the ID of the folder...
         let currentFolderId = folder ? folder.id : undefined;
 
         // ...if no folder was found...
         if (currentFolderId === undefined) {
-            if (options.create) //  ...we check if we are allowed to create one...
+            core.info(`No folder with name ${folderName} was found`);
+            if (options.create) {//  ...we check if we are allowed to create one...
+                core.info(`Creating folder ${folderName}`);
                 currentFolderId = await drive.files.create({
                     requestBody: {
                         name: folderName,
@@ -157,18 +167,18 @@ async function folder(drive, options) {
                     .then(res => res.data.id)
                     .catch(e => {
                         folderLockRelease(); // We are no longer risking a race condition
-                        Promise.reject(e.toString())
+                        throw e;
                     });
-            else {// ...if not, we fail
+            } else {// ...if not, we fail
                 folderLockRelease(); // We are no longer risking a race condition
-                Promise.reject(`The (sub)folder ${folderName} couldn't be located nor created (Full path: ${options.path}. Query: ${q})`);
+                throw `The (sub)folder '${folderName}' couldn't be located nor created (Full path: ${options.path}. Query: ${q})`;
             }
         }
-        core.info(`Folder ${folderName} has id ${currentFolderId}`);
+        core.info(`Folder '${folderName}' has id '${currentFolderId}'`);
         folderLockRelease(); // We are no longer risking a race condition
         parentId = currentFolderId;
     }
-    core.info(`Returning ${parentId} for ${pathStructure}`);
+    core.info(`Returning '${parentId}' for '${pathStructure}'`);
     return parentId;
 }
 //#endregion

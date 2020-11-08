@@ -8,6 +8,9 @@ inputs:
   glob:
     description: 'Glob that will be used to find files to upload'
     required: true
+  keepStructure:
+    description: 'Keep the folder structure (Defaults to true)'
+    required: false
   uploadTo:
     description: 'ID of the folder where the files will be uploaded (Defaults to My Drive)'
     required: false
