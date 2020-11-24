@@ -4,7 +4,7 @@
   "description": "Uploads files to Drive",
   "main": "index.js",
   "author": "",
-  "license": "ISC",
+  "license": "GPL-3.0-only",
   "dependencies": {
     "@actions/core": "^1.2.6",
     "await-semaphore": "^0.1.3",
