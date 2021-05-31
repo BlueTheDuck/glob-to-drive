@@ -2,6 +2,7 @@ const { google } = require("googleapis");
 const core = require("@actions/core");
 const glob = require("glob");
 const path = require("path");
+const util = require("util");
 const { login, createDriveApi, list, update, upload, folder } = require("./drive-wrapper.js");
 
 
@@ -28,18 +29,16 @@ async function getGDriveFiles(Drive) {
     core.info("Getting list of files in Drive");
     return await list(Drive, q);
 }
+
 async function getMatchedFiles() {
     let pattern = core.getInput("glob", { required: true });
     core.info(`Performing search with ${pattern}`);
-    return new Promise((ok, nok) => {
-        glob(pattern, {}, (err, matches) => {
-            if (err)
-                return nok(err);
-            else
-                return ok(matches);
-        })
+    let glob_p = util.promisify(glob);
+    return glob_p(pattern, {
+        "nodir": "true"
     });
 }
+
 /**
  * 
  * @param {String} filePath File to be uploaded
@@ -101,7 +100,12 @@ async function main() {
     let auth = await login(credentials, token);
     let drive = createDriveApi(auth);
     let [gfiles, matches] = await Promise.all([getGDriveFiles(drive), getMatchedFiles()]);
-    return await Promise.all(matches.map(filePath => processFile(filePath, gfiles, drive))).then(p => p.length); // Return the amount of files processed
+    return await Promise.all(
+        matches
+            .map(
+                filePath => processFile(filePath, gfiles, drive)
+            ))
+        .then(p => p.length); // Return the amount of files processed
 }
 
 

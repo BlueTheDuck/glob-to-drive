@@ -79,25 +79,21 @@ async function upload(drive, options) {
         options.parents = [options.parents]
     }
     core.info(`Uploading file ${options.path} with mime-type ${options.mimeType || "empty"}`);
-    try {
-        await drive.files.create({
-            requestBody: {
-                mimeType: options.mimeType,
-                name: options.name || options.path,
-                parents: options.parents,
-                appProperties: {
-                    source: options.path,
-                    "glob-to-drive": true
-                }
-            },
-            media: {
-                mimeType: options.mimeType,
-                body: fs.createReadStream(options.path)
+    return drive.files.create({
+        requestBody: {
+            mimeType: options.mimeType,
+            name: options.name || options.path,
+            parents: options.parents,
+            appProperties: {
+                source: options.path,
+                "glob-to-drive": true
             }
-        });
-    } catch (e) {
-        Promise.reject(e);
-    }
+        },
+        media: {
+            mimeType: options.mimeType,
+            body: fs.createReadStream(options.path)
+        }
+    });
 }
 
 /**
@@ -140,6 +136,7 @@ async function folder(drive, options) {
 
         let q = `'${parentId}' in parents and name = '${folderName}'`;
 
+        // There could be many folders with the same name, we choose the first one
         // TODO: Find a better way to choose what folder to use. 
         let folder = await list(drive, q)
             .then(folders => folders[0]) // Take the first, ignore the rest
